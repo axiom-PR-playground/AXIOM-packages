@@ -1,1 +1,4 @@
 repo/*
+*.db
+*.files
+*.tar.gz

@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
-RELEASE_FILES=$(find . -name "*.pkg.tar.xz")
+RELEASE_FILES=$(find ./repo -name "*.pkg.tar.xz")
+RELEASE_FILES+=" apertus.db apertus.files"
 
 # A POSIX variable
 OPTIND=1 # Reset in case getopts has been used previously in the shell.
