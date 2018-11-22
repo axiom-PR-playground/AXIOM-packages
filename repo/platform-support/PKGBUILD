@@ -1,0 +1,27 @@
+# AXIOM beta micro-zed Platform Support package
+# Maintainer: TBA
+
+buildarch=4
+
+pkgname=FSBL
+descriptions="Xilinx First Stage Boot Loader"
+pkgver=xilinx.v2018.2
+pkgrel=0
+arch=('any')
+_srcname='platform-support'
+url="https://"
+license=('GPL2')
+makedepends=('gcc' 'make' 'libelf' 'pcre')
+source=("$_srcname::git+https://github.com/axiom-PR-playground/AXIOM-beta-Platform-Supports.git")
+md5sums=('SKIP')
+
+build() {
+  make -C "${srcdir}/${_srcname}"
+}
+
+package() {
+  mkdir -p ${pkgdir}/boot
+  cp "${srcdir}/${_srcname}/dist/BOOT.bin" "${pkgdir}/boot"
+}
+
+# vim:set ts=8 sts=2 sw=2 et:
