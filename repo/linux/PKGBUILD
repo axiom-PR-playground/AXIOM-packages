@@ -1,0 +1,217 @@
+# AXIOM beta micro-zed Linux kernel
+# Maintainer: TBA
+
+buildarch=4
+
+pkgbase=linux-axiom-beta
+_commit=xilinx-v2016.4
+_srcname=linux-xlnx-${_commit}
+_kernelname=${pkgbase#linux}
+_desc="AXIOM beta"
+pkgver=4.6.0
+pkgrel=0
+arch=('any')
+url="https://github.com/Xilinx/linux-xlnx"
+license=('GPL2')
+#docbook-xsl
+makedepends=('xmlto' 'kmod' 'inetutils' 'bc' 'git')
+options=('!strip')
+source=(
+        "https://github.com/Xilinx/linux-xlnx/archive/${_commit}.tar.gz"
+        config         # the main kernel config file
+        60-linux.hook  # pacman hook for depmod
+        #90-linux.hook  # pacman hook for mkinitcpio
+)
+md5sums=(
+        '87b4c533fe3e9bb014a43a2ba6e0ed9c'
+        '91e741e10f3a5e30e5596d332a6a9306'
+        '0a5f16bfec6ad982a2f6782724cca8ba'
+        #'4c8624d13130e4fc7b878155b8b6721f'
+)
+
+# These are helpers to build with cross compile.
+# export ARCH=arm
+# export CROSS_COMPILE=${CROSS_COMPILE:=arm-linux-gnueabi-}
+
+prepare() {
+  cd "${srcdir}/${_srcname}"
+
+  msg2 "Setting version..."
+  scripts/setlocalversion --save-scmversion
+  echo "-$pkgrel" > localversion.10-pkgrel
+  echo "$_kernelname" > localversion.20-pkgname
+
+  local src
+  for src in "${source[@]}"; do
+    src="${src%%::*}"
+    src="${src##*/}"
+    [[ $src = *.patch ]] || continue
+    msg2 "Applying patch $src..."
+    patch -Np1 < "../$src"
+  done
+
+  msg2 "Setting config..."
+  cp "${srcdir}/config" .config
+  make olddefconfig
+
+  make -s kernelrelease > ../version
+  msg2 "Prepared %s version %s" "$pkgbase" "$(<../version)"
+  # don't run depmod on 'make install'. We'll do this ourselves in packaging
+  sed -i '2iexit 0' scripts/depmod.sh
+}
+
+build() {
+  cd "${srcdir}/${_srcname}"
+  make ${MAKEFLAGS} zImage modules -j $(nproc)
+  # Make a copy of target image for later packaging
+  cp arch/$ARCH/boot/zImage ./
+}
+
+_package() {
+  pkgdesc="The Linux Kernel and modules - ${_desc}"
+  groups=(axiom)
+  depends=('coreutils' 'linux-firmware' 'kmod' 'mkinitcpio')
+  optdepends=('crda: to set the correct wireless channels of your country')
+  provides=('kernel26' "linux=${pkgver}" 'aufs_friendly')
+  conflicts=('linux')
+  install=linux.install
+
+  local kernver="$(<version)"
+
+  cd "${srcdir}/${_srcname}"
+
+  msg2 "Installing boot image... $(pwd) $kernver"
+  install -Dm644 "vmlinux" "$pkgdir/boot/vmlinuz-$pkgbase"
+  install -Dm644 "zImage" "$pkgdir/boot/zImage"
+
+  msg2 "Installing modules..."
+  local modulesdir="$pkgdir/usr/lib/modules/$kernver"
+  mkdir -p "$modulesdir"
+  make INSTALL_MOD_PATH="$pkgdir/usr" modules_install
+
+  # a place for external modules,
+  # with version file for building modules and running depmod from hook
+  local extramodules="extramodules$_kernelname"
+  local extradir="$pkgdir/usr/lib/modules/$extramodules"
+  install -Dt "$extradir" -m644 ../version
+  ln -sr "$extradir" "$modulesdir/extramodules"
+
+  # remove build and source links
+  rm "$modulesdir"/{source,build}
+
+  msg2 "Installing hooks..."
+  # sed expression for following substitutions
+  local subst="
+    s|%PKGBASE%|$pkgbase|g
+    s|%KERNVER%|$kernver|g
+    s|%EXTRAMODULES%|$extramodules|g
+  "
+
+  # hack to allow specifying an initially nonexisting install file
+  sed "$subst" "$startdir/$install" > "$startdir/$install.pkg"
+  true && install=$install.pkg
+
+  # fill in mkinitcpio preset and pacman hooks
+  #sed "$subst" ../linux.preset | install -Dm644 /dev/stdin \
+  #  "$pkgdir/etc/mkinitcpio.d/$pkgbase.preset"
+  sed "$subst" ../60-linux.hook | install -Dm644 /dev/stdin \
+    "$pkgdir/usr/share/libalpm/hooks/60-$pkgbase.hook"
+  #sed "$subst" ../90-linux.hook | install -Dm644 /dev/stdin \
+  #  "$pkgdir/usr/share/libalpm/hooks/90-$pkgbase.hook"
+
+  msg2 "Fixing permissions..."
+  chmod -Rc u=rwX,go=rX "$pkgdir"
+}
+
+_package-headers() {
+  pkgdesc="Header files and scripts for building modules for linux kernel - ${_desc}"
+  provides=("linux-headers=${pkgver}")
+  conflicts=('linux-headers')
+
+  local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
+  cd $_srcname
+
+  msg2 "Installing build files..."
+  install -Dt "$builddir" -m644 Makefile .config Module.symvers System.map zImage vmlinux
+  install -Dt "$builddir/kernel" -m644 kernel/Makefile
+  install -Dt "$builddir/arch/arm" -m644 arch/arm/Makefile
+  cp -t "$builddir" -a scripts
+
+  # Currently not supported on ARM with kernel version 4.6
+  # add objtool for external module building and enabled VALIDATION_STACK option
+  # install -Dt "$builddir/tools/objtool" tools/objtool/objtool
+
+  # add xfs and shmem for aufs building
+  mkdir -p "$builddir"/{fs/xfs,mm}
+
+  # ???
+  mkdir "$builddir/.tmp_versions"
+
+  msg2 "Installing headers..."
+  cp -t "$builddir" -a include
+  cp -t "$builddir/arch/arm" -a arch/arm/include
+  install -Dt "$builddir/arch/arm/kernel" -m644 arch/arm/kernel/asm-offsets.s
+
+  install -Dt "$builddir/drivers/md" -m644 drivers/md/*.h
+  install -Dt "$builddir/net/mac80211" -m644 net/mac80211/*.h
+
+  # http://bugs.archlinux.org/task/13146
+  install -Dt "$builddir/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
+
+  # http://bugs.archlinux.org/task/20402
+  install -Dt "$builddir/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
+  install -Dt "$builddir/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
+  install -Dt "$builddir/drivers/media/tuners" -m644 drivers/media/tuners/*.h
+
+  msg2 "Installing KConfig files..."
+  find . -name 'Kconfig*' -exec install -Dm644 {} "$builddir/{}" \;
+
+  msg2 "Removing unneeded architectures..."
+  local arch
+  for arch in "$builddir"/arch/*/; do
+    [[ $arch = */arm/ ]] && continue
+    echo "Removing $(basename "$arch")"
+    rm -r "$arch"
+  done
+
+  msg2 "Removing documentation..."
+  rm -r "$builddir/Documentation"
+
+  msg2 "Removing broken symlinks..."
+  find -L "$builddir" -type l -printf 'Removing %P\n' -delete
+
+  msg2 "Removing loose objects..."
+  find "$builddir" -type f -name '*.o' -printf 'Removing %P\n' -delete
+
+  msg2 "Stripping build tools..."
+  local file
+  while read -rd '' file; do
+    case "$(file -bi "$file")" in
+      application/x-sharedlib\;*)      # Libraries (.so)
+        strip -v $STRIP_SHARED "$file" ;;
+      application/x-archive\;*)        # Libraries (.a)
+        strip -v $STRIP_STATIC "$file" ;;
+      application/x-executable\;*)     # Binaries
+        strip -v $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) # Relocatable binaries
+        strip -v $STRIP_SHARED "$file" ;;
+    esac
+  done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
+
+  msg2 "Adding symlink..."
+  mkdir -p "$pkgdir/usr/src"
+  ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase-$pkgver"
+
+  msg2 "Fixing permissions..."
+  chmod -Rc u=rwX,go=rX "$pkgdir"
+}
+
+pkgname=("$pkgbase" "$pkgbase-headers")
+for _p in "${pkgname[@]}"; do
+  eval "package_$_p() {
+    $(declare -f "_package${_p#$pkgbase}")
+    _package${_p#$pkgbase}
+  }"
+done
+
+# vim:set ts=8 sts=2 sw=2 et:
