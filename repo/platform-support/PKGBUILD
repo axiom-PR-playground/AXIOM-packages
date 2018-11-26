@@ -3,8 +3,8 @@
 
 buildarch=4
 
-pkgname=FSBL
-descriptions="Xilinx First Stage Boot Loader"
+pkgname=beta-platform-support
+descriptions="Xilinx First Stage Boot Loader and AXIOM beta HW dtb"
 pkgver=xilinx.v2018.2
 pkgrel=0
 groups=(axiom-beta)
@@ -23,6 +23,8 @@ build() {
 package() {
   mkdir -p ${pkgdir}/boot
   cp "${srcdir}/${_srcname}/dist/BOOT.bin" "${pkgdir}/boot"
+  cp "${srcdir}/${_srcname}/dist/devicetree.dts" "${pkgdir}/boot"
+  cp "${srcdir}/${_srcname}/dist/devicetree.dtb" "${pkgdir}/boot"
 }
 
 # vim:set ts=8 sts=2 sw=2 et:
