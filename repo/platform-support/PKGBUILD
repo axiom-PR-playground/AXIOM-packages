@@ -25,6 +25,7 @@ package() {
   cp "${srcdir}/${_srcname}/dist/BOOT.bin" "${pkgdir}/boot"
   cp "${srcdir}/${_srcname}/dist/devicetree.dts" "${pkgdir}/boot"
   cp "${srcdir}/${_srcname}/dist/devicetree.dtb" "${pkgdir}/boot"
+  cp "${srcdir}/${_srcname}/dist/uEnv.txt" "${pkgdir}/boot"
 }
 
 # vim:set ts=8 sts=2 sw=2 et:
