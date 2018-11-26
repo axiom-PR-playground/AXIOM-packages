@@ -1,0 +1,28 @@
+buildarch=4
+
+pkgname=axiom-web
+descriptions="AXIOM web page and controller"
+pkgver=0.1
+pkgrel=0
+groups=(axiom-utils)
+arch=('any')
+# TODO What is the license for this?
+# license=('GPL2')
+source=(
+  "https://github.com/axiom-PR-playground/AXIOM-web/archive/v${pkgver}.tar.gz"
+  "lighttpd.conf"
+)
+sha256sums=(
+  'f8ce41939d2a112a1c852fe95bfc12acd6beba3b9146e20e63fbb69707d942d8'
+  'b3a5e38590d357c16fe5b7298d59cd699416c5b6efe9627ea36ba6bfb85f52c5'
+)
+
+package() {
+  mkdir -p ${pkgdir}/srv
+  mkdir -p ${pkgdir}/etc/lighttpd
+
+  cp -r "${srcdir}/AXIOM-web-${pkgver}/http" "${pkgdir}/srv"
+  cp "${srcdir}/lighttpd.conf" "${pkgdir}/etc/lighttpd/lighttpd.conf"
+}
+
+# vim:set ts=8 sts=2 sw=2 et:
