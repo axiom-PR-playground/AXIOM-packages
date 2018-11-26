@@ -5,12 +5,11 @@ buildarch=4
 
 pkgname=beta-platform-support
 descriptions="Xilinx First Stage Boot Loader and AXIOM beta HW dtb"
-pkgver=xilinx.v2018.2
+pkgver=0.1
 pkgrel=0
 groups=(axiom-beta)
 arch=('any')
 _srcname='platform-support'
-url="http://www.xilinx.com/support/documentation/sw_manuals/xilinx2015_1/ug1165-zynq-embedded-design-tutorial.pdf"
 license=('GPL2')
 makedepends=('gcc' 'make' 'libelf' 'pcre')
 source=("$_srcname::git+https://github.com/axiom-PR-playground/AXIOM-beta-Platform-Supports.git")
