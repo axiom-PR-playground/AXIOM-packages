@@ -81,7 +81,8 @@ _package() {
   cd "${srcdir}/${_srcname}"
 
   msg2 "Installing boot image... $(pwd) $kernver"
-  install -Dm644 "vmlinux" "$pkgdir/boot/vmlinuz-$pkgbase"
+  # This is for initramfs
+  # install -Dm644 "vmlinux" "$pkgdir/boot/vmlinuz-$pkgbase"
   install -Dm644 "zImage" "$pkgdir/boot/zImage"
 
   msg2 "Installing modules..."
